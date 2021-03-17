@@ -277,8 +277,6 @@ class TaskManager(object):
     self.logger.log_exit(task)
     self.times.record_test_time(task.test_binary, task.test_name,
                                 task.last_execution_time)
-    for sink in self.test_results:
-      sink.log(task)
 
     with self.lock:
       self.started.pop(task.task_id)
