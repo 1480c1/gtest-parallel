@@ -637,26 +637,24 @@ def find_tests(binaries, additional_args, options, times):
 
     command += ['--gtest_color=' + options.gtest_color]
 
+    # Skip PRE_ tests which are used by Chromium along with removing comments and trailing whitespace
+    test_list[:] = [
+        w.split('#')[0].rstrip() for w in test_list
+        if w.strip() and not '.PRE_' in w
+    ]
+
+    # Skip tests that are not enabled.
+    if not options.gtest_also_run_disabled_tests:
+      test_list[:] = [w for w in test_list if not '  DISABLED_' in w]
+
     test_group = ''
     for line in test_list:
-      if not line.strip():
-        continue
       if line[0] != " ":
-        # Remove comments for typed tests and strip whitespace.
-        test_group = line.split('#')[0].strip()
+        # strip leading whitespace
+        test_group = line.lstrip()
         continue
-      # Remove comments for parameterized tests and strip whitespace.
-      line = line.split('#')[0].strip()
-      if not line:
-        continue
-
-      test_name = test_group + line
-      if not options.gtest_also_run_disabled_tests and 'DISABLED_' in test_name:
-        continue
-
-      # Skip PRE_ tests which are used by Chromium.
-      if '.PRE_' in test_name:
-        continue
+      # Strip leading whitespace. Append to get our test name
+      test_name = test_group + line.lstrip()
 
       last_execution_time = times.get_test_time(test_binary, test_name)
       if options.failed and last_execution_time is not None:
