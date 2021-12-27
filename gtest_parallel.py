@@ -612,14 +612,14 @@ class TestTimes(object):
 
 
 def find_tests(binaries, additional_args, options, times):
-  test_count = 0
   tasks = []
   for test_binary in binaries:
     command = [test_binary] + additional_args
     if options.gtest_also_run_disabled_tests:
       command += ['--gtest_also_run_disabled_tests']
 
-    list_command = command + ['--gtest_list_tests']
+    list_command = [a for a in command if not "--gtest_output=" in a
+                    ] + ['--gtest_list_tests']
     if options.gtest_filter != '':
       list_command += ['--gtest_filter=' + options.gtest_filter]
 
@@ -647,15 +647,24 @@ def find_tests(binaries, additional_args, options, times):
     if not options.gtest_also_run_disabled_tests:
       test_list[:] = [w for w in test_list if not '  DISABLED_' in w]
 
-    test_group = ''
-    for line in test_list:
-      if line[0] != " ":
-        # strip leading whitespace
-        test_group = line.lstrip()
-        continue
-      # Strip leading whitespace. Append to get our test name
-      test_name = test_group + line.lstrip()
+    test_to_run = []
+    if options.group_by_group:
+      # Add the test group to the list of tests to run.
+      test_to_run[:] += [
+          test.strip() + '*' for test in test_list if test[0] != ' '
+      ]
+    else:
+      test_group = ""
+      for test in test_list:
+        if test[0] != " ":
+          # strip leading whitespace, set the test group
+          test_group = test.lstrip()
+          continue
+        # strip leading whitespace, assume we already have a group
+        test_to_run[:] += [test_group + test.lstrip()]
 
+    test_count = 0
+    for test_name in test_to_run:
       last_execution_time = times.get_test_time(test_binary, test_name)
       if options.failed and last_execution_time is not None:
         continue
@@ -814,6 +823,13 @@ def default_options_parser():
                     default=False,
                     help='Do not run tests from the same test '
                     'case in parallel.')
+  parser.add_option(
+      '--group_by_group',
+      action='store_true',
+      default=False,
+      help=
+      'group execution by test group instead of individual tests, use if startup takes more time than running each tests'
+  )
   return parser
 
 
